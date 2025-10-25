@@ -28,14 +28,14 @@ jobs:
       - name: Build webhook-receiver Lambda
         working-directory: lambda/webhook-receiver-go
         run: |
-          go mod download
+          go mod tidy
           GOOS=linux GOARCH=amd64 go build -o bootstrap main.go
           zip function.zip bootstrap
 
       - name: Build es-indexer-worker Lambda
         working-directory: lambda/es-indexer-worker-go
         run: |
-          go mod download
+          go mod tidy
           GOOS=linux GOARCH=amd64 go build -o bootstrap main.go
           zip function.zip bootstrap
 
