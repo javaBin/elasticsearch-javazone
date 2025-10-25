@@ -45,12 +45,13 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_OIDC }}
 
-      - name: Assume CDK Deploy Role
+      - name: Assume CDK Exec Role
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: arn:aws:iam::553637109631:role/cdk-hnb659fds-deploy-role-553637109631-eu-central-1
+          role-to-assume: arn:aws:iam::553637109631:role/cdk-hnb659fds-cfn-exec-role-553637109631-eu-central-1
           role-chaining: true
+          role-skip-session-tagging: true
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
