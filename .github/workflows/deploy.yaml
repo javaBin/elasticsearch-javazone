@@ -42,6 +42,16 @@ jobs:
       - name: Terraform Plan
         working-directory: terraform
         run: terraform plan -input=false
+        env:
+          TF_VAR_vpc_id: ${{ secrets.VPC_ID }}
+          TF_VAR_subnet_ids: ${{ secrets.ES_SUBNET_IDS }}
+          TF_VAR_assign_public_ip: false
+          TF_VAR_allowed_cidr_blocks: ${{ secrets.VPC_CIDR_BLOCKS }}
+          TF_VAR_elasticsearch_password: ${{ secrets.ELASTICSEARCH_PASSWORD }}
+          TF_VAR_task_cpu: 1024
+          TF_VAR_task_memory: 2048
+          TF_VAR_heap_size: 1024
+          TF_VAR_enable_service_discovery: true
 
       - name: Terraform Apply
         working-directory: terraform
