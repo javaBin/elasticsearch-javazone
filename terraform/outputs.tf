@@ -1,22 +1,29 @@
-output "ecs_cluster_name" {
-  value = aws_ecs_cluster.main.name
+output "webhook_url" {
+  value       = "${aws_apigatewayv2_api.webhook.api_endpoint}/webhook"
+  description = "⭐ Use this URL in moresleep WEBHOOK_ENDPOINT configuration"
 }
 
-output "ecs_service_name" {
-  value = aws_ecs_service.elasticsearch.name
+output "sqs_queue_url" {
+  value = aws_sqs_queue.main.url
 }
 
-output "efs_file_system_id" {
-  value       = aws_efs_file_system.elasticsearch_data.id
-  description = "EFS file system ID for Elasticsearch data"
+output "sqs_dlq_url" {
+  value = aws_sqs_queue.dlq.url
 }
 
-output "service_discovery_endpoint" {
-  value       = var.enable_service_discovery ? "elasticsearch.javazone.internal:9200" : "Use task IP"
-  description = "Elasticsearch endpoint (DNS name if service discovery enabled)"
+output "elasticsearch_endpoint" {
+  value       = "http://elasticsearch.javazone.internal:9200"
+  description = "Elasticsearch endpoint (via service discovery)"
 }
 
-output "elasticsearch_url_template" {
-  value       = var.enable_service_discovery ? "http://elasticsearch.javazone.internal:9200" : "http://<task-ip>:9200"
-  description = "Template URL for Elasticsearch"
+output "webhook_receiver_lambda" {
+  value = aws_lambda_function.webhook_receiver.function_name
+}
+
+output "es_indexer_lambda" {
+  value = aws_lambda_function.es_indexer.function_name
+}
+
+output "elasticsearch_cluster" {
+  value = aws_ecs_cluster.es_cluster.name
 }

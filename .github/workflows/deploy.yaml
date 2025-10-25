@@ -1,11 +1,9 @@
-name: Deploy Elasticsearch Infrastructure
+name: Deploy Complete Elasticsearch Infrastructure
 
 on:
   push:
     branches:
       - main
-    paths:
-      - 'terraform/**'
   workflow_dispatch:
 
 permissions:
@@ -14,30 +12,41 @@ permissions:
 
 env:
   AWS_REGION: eu-central-1
-  ECS_CLUSTER: elasticsearch-javazone
-  ECS_SERVICE: elasticsearch-javazone
 
 jobs:
-  terraform-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials (OIDC)
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+          cache: 'maven'
+
+      - name: Build webhook-receiver Lambda
+        working-directory: lambda/webhook-receiver
+        run: mvn clean package -DskipTests
+
+      - name: Build es-indexer-worker Lambda
+        working-directory: lambda/es-indexer-worker
+        run: mvn clean package -DskipTests
+
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_OIDC }}
-          role-session-name: GitHubActions-OIDC
 
-      - name: Assume CDK Deploy Role for Terraform
+      - name: Assume CDK Deploy Role
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: arn:aws:iam::553637109631:role/cdk-hnb659fds-deploy-role-553637109631-eu-central-1
           role-chaining: true
-          role-session-name: GitHubActions-Deploy
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -54,45 +63,62 @@ jobs:
         run: terraform plan -input=false
         env:
           TF_VAR_vpc_id: ${{ secrets.VPC_ID }}
-          TF_VAR_subnet_ids: ${{ secrets.ES_SUBNET_IDS }}
+          TF_VAR_es_subnet_ids: ${{ secrets.ES_SUBNET_IDS }}
           TF_VAR_assign_public_ip: false
           TF_VAR_allowed_cidr_blocks: ${{ secrets.VPC_CIDR_BLOCKS }}
           TF_VAR_elasticsearch_password: ${{ secrets.ELASTICSEARCH_PASSWORD }}
+          TF_VAR_elasticsearch_url: http://elasticsearch.javazone.internal:9200
           TF_VAR_task_cpu: 1024
           TF_VAR_task_memory: 2048
           TF_VAR_heap_size: 1024
-          TF_VAR_enable_service_discovery: true
+          TF_VAR_webhook_secret: ${{ secrets.WEBHOOK_SECRET }}
+          TF_VAR_moresleep_url: ${{ secrets.MORESLEEP_URL }}
+          TF_VAR_moresleep_username: ${{ secrets.MORESLEEP_USERNAME }}
+          TF_VAR_moresleep_password: ${{ secrets.MORESLEEP_PASSWORD }}
 
       - name: Terraform Apply
         working-directory: terraform
         run: terraform apply -auto-approve -input=false
         env:
           TF_VAR_vpc_id: ${{ secrets.VPC_ID }}
-          TF_VAR_subnet_ids: ${{ secrets.ES_SUBNET_IDS }}
+          TF_VAR_es_subnet_ids: ${{ secrets.ES_SUBNET_IDS }}
           TF_VAR_assign_public_ip: false
           TF_VAR_allowed_cidr_blocks: ${{ secrets.VPC_CIDR_BLOCKS }}
           TF_VAR_elasticsearch_password: ${{ secrets.ELASTICSEARCH_PASSWORD }}
+          TF_VAR_elasticsearch_url: http://elasticsearch.javazone.internal:9200
           TF_VAR_task_cpu: 1024
           TF_VAR_task_memory: 2048
           TF_VAR_heap_size: 1024
-          TF_VAR_enable_service_discovery: true
+          TF_VAR_webhook_secret: ${{ secrets.WEBHOOK_SECRET }}
+          TF_VAR_moresleep_url: ${{ secrets.MORESLEEP_URL }}
+          TF_VAR_moresleep_username: ${{ secrets.MORESLEEP_USERNAME }}
+          TF_VAR_moresleep_password: ${{ secrets.MORESLEEP_PASSWORD }}
 
-      - name: Wait for Elasticsearch to be ready
+      - name: Show Outputs
+        working-directory: terraform
         run: |
-          echo "Waiting 120 seconds for Elasticsearch to start..."
-          sleep 120
+          echo "================================================"
+          echo "✅ Deployment Complete!"
+          echo "================================================"
+          echo ""
+          echo "🔗 Webhook URL for moresleep:"
+          terraform output -raw webhook_url
+          echo ""
+          echo ""
+          echo "📊 Elasticsearch:"
+          terraform output -raw elasticsearch_endpoint
+          echo ""
+          echo ""
+          echo "📦 SQS Queue:"
+          terraform output -raw sqs_queue_url
+          echo ""
+          echo "================================================"
 
       - name: Create Elasticsearch Index
         run: |
-          # Get Elasticsearch URL from service discovery or task IP
+          sleep 60
           ES_URL="http://elasticsearch.javazone.internal:9200"
-
-          # Create index (idempotent - won't fail if already exists)
           curl -X PUT "$ES_URL/javazone_talks" \
             -u elastic:${{ secrets.ELASTICSEARCH_PASSWORD }} \
             -H "Content-Type: application/json" \
             -d @config/index-mapping.json || echo "Index may already exist"
-
-          # Verify cluster health
-          curl -u elastic:${{ secrets.ELASTICSEARCH_PASSWORD }} \
-            "$ES_URL/_cluster/health"

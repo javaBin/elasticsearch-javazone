@@ -4,24 +4,18 @@ variable "aws_region" {
   default     = "eu-central-1"
 }
 
-variable "environment" {
-  description = "Environment name"
-  type        = string
-  default     = "prod"
-}
-
 variable "vpc_id" {
   description = "VPC ID"
   type        = string
 }
 
-variable "subnet_ids" {
-  description = "Subnet IDs for Elasticsearch"
+variable "es_subnet_ids" {
+  description = "Subnet IDs for Elasticsearch (need 2+ for EFS)"
   type        = list(string)
 }
 
 variable "assign_public_ip" {
-  description = "Assign public IP (true if using public subnets)"
+  description = "Assign public IP to Elasticsearch task"
   type        = bool
   default     = false
 }
@@ -29,35 +23,70 @@ variable "assign_public_ip" {
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks allowed to access Elasticsearch"
   type        = list(string)
-  default     = ["10.0.0.0/8"]  # Adjust to your VPC CIDR
-}
-
-variable "elasticsearch_password" {
-  description = "Elasticsearch password for elastic user"
-  type        = string
-  sensitive   = true
 }
 
 variable "task_cpu" {
-  description = "CPU units (1024 = 1 vCPU)"
+  description = "CPU units for Elasticsearch"
   type        = number
   default     = 1024
 }
 
 variable "task_memory" {
-  description = "Memory in MB (at least 2x heap_size)"
+  description = "Memory for Elasticsearch"
   type        = number
   default     = 2048
 }
 
 variable "heap_size" {
-  description = "Java heap size in MB (should be ~50% of task_memory)"
+  description = "Java heap size in MB"
   type        = number
   default     = 1024
 }
 
-variable "enable_service_discovery" {
-  description = "Enable service discovery for stable DNS (elasticsearch.javazone.internal)"
-  type        = bool
-  default     = true
+variable "elasticsearch_password" {
+  description = "Elasticsearch password"
+  type        = string
+  sensitive   = true
+}
+
+variable "elasticsearch_url" {
+  description = "Elasticsearch URL"
+  type        = string
+  default     = "http://elasticsearch.javazone.internal:9200"
+}
+
+variable "elasticsearch_username" {
+  description = "Elasticsearch username"
+  type        = string
+  default     = "elastic"
+}
+
+variable "elasticsearch_index" {
+  description = "Elasticsearch index name"
+  type        = string
+  default     = "javazone_talks"
+}
+
+variable "webhook_secret" {
+  description = "HMAC secret for webhook validation"
+  type        = string
+  sensitive   = true
+}
+
+variable "moresleep_url" {
+  description = "Moresleep API URL"
+  type        = string
+}
+
+variable "moresleep_username" {
+  description = "Moresleep username"
+  type        = string
+  default     = ""
+}
+
+variable "moresleep_password" {
+  description = "Moresleep password"
+  type        = string
+  sensitive   = true
+  default     = ""
 }
