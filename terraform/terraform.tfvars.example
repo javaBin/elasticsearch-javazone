@@ -1,0 +1,17 @@
+# Copy to terraform.tfvars and fill in your values
+
+aws_region             = "eu-central-1"
+environment            = "prod"
+vpc_id                 = "vpc-xxxxxxxxx"
+subnet_ids             = ["subnet-xxxxxxxx", "subnet-yyyyyyyy"]  # 2+ subnets for EFS
+assign_public_ip       = false  # Use private subnets with NAT
+allowed_cidr_blocks    = ["10.0.0.0/8"]  # Your VPC CIDR
+elasticsearch_password = "your-strong-password-here"
+
+# Resources (for ~10K talks, these are sufficient)
+task_cpu               = 1024  # 1 vCPU
+task_memory            = 2048  # 2GB RAM
+heap_size              = 1024  # 1GB heap
+
+# Service Discovery (recommended for stable DNS)
+enable_service_discovery = true

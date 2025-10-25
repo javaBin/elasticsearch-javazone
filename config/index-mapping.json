@@ -1,0 +1,130 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "index": {
+      "max_result_window": 10000
+    }
+  },
+  "mappings": {
+    "properties": {
+      "talkId": {
+        "type": "keyword"
+      },
+      "conferenceId": {
+        "type": "keyword"
+      },
+      "title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "abstract": {
+        "type": "text"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "format": {
+        "type": "keyword"
+      },
+      "language": {
+        "type": "keyword"
+      },
+      "length": {
+        "type": "keyword"
+      },
+      "tags": {
+        "type": "nested",
+        "properties": {
+          "tag": {
+            "type": "keyword"
+          },
+          "author": {
+            "type": "keyword"
+          }
+        }
+      },
+      "keywords": {
+        "type": "keyword"
+      },
+      "speakers": {
+        "type": "nested",
+        "properties": {
+          "speakerId": {
+            "type": "keyword"
+          },
+          "name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword"
+              }
+            }
+          },
+          "email": {
+            "type": "keyword"
+          },
+          "bio": {
+            "type": "text"
+          }
+        }
+      },
+      "comments": {
+        "type": "nested",
+        "properties": {
+          "id": {
+            "type": "keyword"
+          },
+          "author": {
+            "type": "keyword"
+          },
+          "comment": {
+            "type": "text"
+          },
+          "created": {
+            "type": "date"
+          }
+        }
+      },
+      "ratings": {
+        "type": "nested",
+        "properties": {
+          "id": {
+            "type": "keyword"
+          },
+          "author": {
+            "type": "keyword"
+          },
+          "rating": {
+            "type": "keyword"
+          },
+          "created": {
+            "type": "date"
+          }
+        }
+      },
+      "avgRating": {
+        "type": "float"
+      },
+      "room": {
+        "type": "keyword"
+      },
+      "slot": {
+        "type": "date"
+      },
+      "lastUpdated": {
+        "type": "date"
+      },
+      "publishedAt": {
+        "type": "date"
+      },
+      "indexed_at": {
+        "type": "date"
+      }
+    }
+  }
+}
