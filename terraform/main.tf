@@ -9,11 +9,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "javazone-terraform-state"
-    key            = "elasticsearch/terraform.tfstate"
-    region         = "eu-central-1"
-    encrypt        = true
-    dynamodb_table = "terraform-lock"
+    bucket  = "javazone-terraform-state"
+    key     = "elasticsearch/terraform.tfstate"
+    region  = "eu-central-1"
+    encrypt = true
   }
 }
 
