@@ -196,7 +196,7 @@ resource "aws_lambda_function" "es_indexer" {
       MORESLEEP_API_URL      = var.moresleep_url
       MORESLEEP_USERNAME     = var.moresleep_username
       MORESLEEP_PASSWORD     = var.moresleep_password
-      ELASTICSEARCH_URL      = var.elasticsearch_url
+      ELASTICSEARCH_URL      = "https://${aws_opensearch_domain.javazone.endpoint}"
       ELASTICSEARCH_USERNAME = var.elasticsearch_username
       ELASTICSEARCH_PASSWORD = var.elasticsearch_password
       ELASTICSEARCH_INDEX    = var.elasticsearch_index
@@ -213,28 +213,21 @@ resource "aws_lambda_event_source_mapping" "sqs_trigger" {
 }
 
 ################################################################################
-# Elasticsearch on Fargate
+# OpenSearch Domain
 ################################################################################
 
-# SSM Parameter for ES password
-resource "aws_ssm_parameter" "elasticsearch_password_ssm" {
-  name  = "/javazone/elasticsearch/password"
-  type  = "SecureString"
-  value = var.elasticsearch_password
-}
-
-# Security Group for Elasticsearch
-resource "aws_security_group" "elasticsearch" {
-  name        = "elasticsearch-javazone"
-  description = "Elasticsearch for JavaZone"
+# Security Group for OpenSearch
+resource "aws_security_group" "opensearch" {
+  name        = "opensearch-javazone"
+  description = "OpenSearch for JavaZone"
   vpc_id      = var.vpc_id
 
   ingress {
-    from_port   = 9200
-    to_port     = 9200
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = var.allowed_cidr_blocks
-    description = "Elasticsearch HTTP"
+    description = "HTTPS for OpenSearch"
   }
 
   egress {
@@ -245,193 +238,64 @@ resource "aws_security_group" "elasticsearch" {
   }
 }
 
-# IAM Role for ECS Task Execution
-resource "aws_iam_role" "es_execution_role" {
-  name = "elasticsearch-javazone-execution"
+# OpenSearch Domain
+resource "aws_opensearch_domain" "javazone" {
+  domain_name    = "javazone-talks"
+  engine_version = "OpenSearch_2.11"
 
-  assume_role_policy = jsonencode({
+  cluster_config {
+    instance_type  = "t3.small.search"  # ~$0.036/hour = ~$26/month
+    instance_count = 1
+    zone_awareness_enabled = false
+  }
+
+  ebs_options {
+    ebs_enabled = true
+    volume_size = 10  # GB - plenty for 10K talks
+    volume_type = "gp3"
+  }
+
+  vpc_options {
+    subnet_ids         = [var.es_subnet_ids[0]]  # Single AZ for cost savings
+    security_group_ids = [aws_security_group.opensearch.id]
+  }
+
+  advanced_security_options {
+    enabled                        = true
+    internal_user_database_enabled = true
+    master_user_options {
+      master_user_name     = var.elasticsearch_username
+      master_user_password = var.elasticsearch_password
+    }
+  }
+
+  encrypt_at_rest {
+    enabled = true
+  }
+
+  node_to_node_encryption {
+    enabled = true
+  }
+
+  domain_endpoint_options {
+    enforce_https       = true
+    tls_security_policy = "Policy-Min-TLS-1-2-2019-07"
+  }
+
+  access_policies = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Action = "sts:AssumeRole"
       Effect = "Allow"
       Principal = {
-        Service = "ecs-tasks.amazonaws.com"
+        AWS = "*"
       }
+      Action   = "es:*"
+      Resource = "arn:aws:es:${var.aws_region}:*:domain/javazone-talks/*"
     }]
   })
-}
 
-resource "aws_iam_role_policy_attachment" "es_execution_role_policy" {
-  role       = aws_iam_role.es_execution_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-resource "aws_iam_role_policy" "es_execution_ssm_policy" {
-  name = "ssm-access"
-  role = aws_iam_role.es_execution_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["ssm:GetParameters", "ssm:GetParameter"]
-      Resource = aws_ssm_parameter.elasticsearch_password_ssm.arn
-    }]
-  })
-}
-
-# IAM Role for ECS Task
-resource "aws_iam_role" "es_task_role" {
-  name = "elasticsearch-javazone-task"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "ecs-tasks.amazonaws.com"
-      }
-    }]
-  })
-}
-
-# EFS for persistent storage
-resource "aws_efs_file_system" "elasticsearch_data" {
-  creation_token = "elasticsearch-javazone-data"
-  encrypted      = true
-
-  lifecycle_policy {
-    transition_to_ia = "AFTER_30_DAYS"
+  tags = {
+    Name = "javazone-talks"
   }
 }
 
-resource "aws_efs_mount_target" "elasticsearch_data" {
-  for_each = toset(var.es_subnet_ids)
-
-  file_system_id  = aws_efs_file_system.elasticsearch_data.id
-  subnet_id       = each.value
-  security_groups = [aws_security_group.efs.id]
-}
-
-resource "aws_security_group" "efs" {
-  name        = "elasticsearch-efs"
-  description = "EFS for Elasticsearch data"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    from_port       = 2049
-    to_port         = 2049
-    protocol        = "tcp"
-    security_groups = [aws_security_group.elasticsearch.id]
-    description     = "NFS from ES tasks"
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# ECS Cluster
-resource "aws_ecs_cluster" "es_cluster" {
-  name = "elasticsearch-javazone"
-}
-
-# ECS Task Definition
-resource "aws_ecs_task_definition" "elasticsearch" {
-  family                   = "elasticsearch-javazone"
-  requires_compatibilities = ["FARGATE"]
-  network_mode             = "awsvpc"
-  cpu                      = var.task_cpu
-  memory                   = var.task_memory
-  execution_role_arn       = aws_iam_role.es_execution_role.arn
-  task_role_arn            = aws_iam_role.es_task_role.arn
-
-  volume {
-    name = "elasticsearch-data"
-    efs_volume_configuration {
-      file_system_id     = aws_efs_file_system.elasticsearch_data.id
-      transit_encryption = "ENABLED"
-    }
-  }
-
-  container_definitions = jsonencode([{
-    name  = "elasticsearch"
-    image = "docker.elastic.co/elasticsearch/elasticsearch:8.11.0"
-
-    portMappings = [{
-      containerPort = 9200
-      protocol      = "tcp"
-    }]
-
-    mountPoints = [{
-      sourceVolume  = "elasticsearch-data"
-      containerPath = "/usr/share/elasticsearch/data"
-    }]
-
-    environment = [
-      { name = "discovery.type", value = "single-node" },
-      { name = "xpack.security.enabled", value = "true" },
-      { name = "ES_JAVA_OPTS", value = "-Xms${var.heap_size}m -Xmx${var.heap_size}m" },
-      { name = "cluster.name", value = "javazone-cluster" }
-    ]
-
-    secrets = [{
-      name      = "ELASTIC_PASSWORD"
-      valueFrom = aws_ssm_parameter.elasticsearch_password_ssm.arn
-    }]
-
-    healthCheck = {
-      command     = ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval    = 30
-      timeout     = 5
-      retries     = 3
-      startPeriod = 120
-    }
-  }])
-}
-
-# ECS Service
-resource "aws_ecs_service" "elasticsearch" {
-  name             = "elasticsearch-javazone"
-  cluster          = aws_ecs_cluster.es_cluster.id
-  task_definition  = aws_ecs_task_definition.elasticsearch.arn
-  desired_count    = 1
-  launch_type      = "FARGATE"
-  platform_version = "1.4.0"
-
-  network_configuration {
-    subnets          = var.es_subnet_ids
-    security_groups  = [aws_security_group.elasticsearch.id]
-    assign_public_ip = var.assign_public_ip
-  }
-
-  service_registries {
-    registry_arn = aws_service_discovery_service.elasticsearch.arn
-  }
-}
-
-# Service Discovery
-resource "aws_service_discovery_private_dns_namespace" "main" {
-  name = "javazone.internal"
-  vpc  = var.vpc_id
-}
-
-resource "aws_service_discovery_service" "elasticsearch" {
-  name = "elasticsearch"
-
-  dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.main.id
-    dns_records {
-      ttl  = 10
-      type = "A"
-    }
-  }
-
-  health_check_custom_config {
-    failure_threshold = 1
-  }
-}

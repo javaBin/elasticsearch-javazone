@@ -25,22 +25,16 @@ variable "allowed_cidr_blocks" {
   type        = list(string)
 }
 
-variable "task_cpu" {
-  description = "CPU units for Elasticsearch"
-  type        = number
-  default     = 1024
+variable "opensearch_instance_type" {
+  description = "OpenSearch instance type"
+  type        = string
+  default     = "t3.small.search"  # ~$26/month
 }
 
-variable "task_memory" {
-  description = "Memory for Elasticsearch"
+variable "opensearch_volume_size" {
+  description = "EBS volume size in GB"
   type        = number
-  default     = 2048
-}
-
-variable "heap_size" {
-  description = "Java heap size in MB"
-  type        = number
-  default     = 1024
+  default     = 10
 }
 
 variable "elasticsearch_password" {

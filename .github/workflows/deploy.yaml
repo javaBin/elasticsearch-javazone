@@ -67,10 +67,6 @@ jobs:
           TF_VAR_assign_public_ip: false
           TF_VAR_allowed_cidr_blocks: ${{ secrets.VPC_CIDR_BLOCKS }}
           TF_VAR_elasticsearch_password: ${{ secrets.ELASTICSEARCH_PASSWORD }}
-          TF_VAR_elasticsearch_url: http://elasticsearch.javazone.internal:9200
-          TF_VAR_task_cpu: 1024
-          TF_VAR_task_memory: 2048
-          TF_VAR_heap_size: 1024
           TF_VAR_webhook_secret: ${{ secrets.WEBHOOK_SECRET }}
           TF_VAR_moresleep_url: ${{ secrets.MORESLEEP_URL }}
           TF_VAR_moresleep_username: ${{ secrets.MORESLEEP_USERNAME }}
@@ -105,8 +101,8 @@ jobs:
           terraform output -raw webhook_url
           echo ""
           echo ""
-          echo "📊 Elasticsearch:"
-          terraform output -raw elasticsearch_endpoint
+          echo "📊 OpenSearch:"
+          terraform output -raw opensearch_endpoint
           echo ""
           echo ""
           echo "📦 SQS Queue:"
@@ -114,11 +110,16 @@ jobs:
           echo ""
           echo "================================================"
 
-      - name: Create Elasticsearch Index
+      - name: Wait for OpenSearch to be ready
         run: |
-          sleep 60
-          ES_URL="http://elasticsearch.javazone.internal:9200"
-          curl -X PUT "$ES_URL/javazone_talks" \
+          echo "Waiting 5 minutes for OpenSearch domain to be active..."
+          sleep 300
+
+      - name: Create OpenSearch Index
+        working-directory: terraform
+        run: |
+          OS_URL=$(terraform output -raw opensearch_endpoint)
+          curl -X PUT "$OS_URL/javazone_talks" \
             -u elastic:${{ secrets.ELASTICSEARCH_PASSWORD }} \
             -H "Content-Type: application/json" \
-            -d @config/index-mapping.json || echo "Index may already exist"
+            -d @../config/index-mapping.json || echo "Index may already exist"

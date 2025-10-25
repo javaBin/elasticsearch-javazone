@@ -11,9 +11,13 @@ output "sqs_dlq_url" {
   value = aws_sqs_queue.dlq.url
 }
 
-output "elasticsearch_endpoint" {
-  value       = "http://elasticsearch.javazone.internal:9200"
-  description = "Elasticsearch endpoint (via service discovery)"
+output "opensearch_endpoint" {
+  value       = "https://${aws_opensearch_domain.javazone.endpoint}"
+  description = "OpenSearch endpoint URL"
+}
+
+output "opensearch_domain_name" {
+  value = aws_opensearch_domain.javazone.domain_name
 }
 
 output "webhook_receiver_lambda" {
@@ -22,8 +26,4 @@ output "webhook_receiver_lambda" {
 
 output "es_indexer_lambda" {
   value = aws_lambda_function.es_indexer.function_name
-}
-
-output "elasticsearch_cluster" {
-  value = aws_ecs_cluster.es_cluster.name
 }
