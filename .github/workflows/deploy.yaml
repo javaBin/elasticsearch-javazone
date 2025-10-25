@@ -20,20 +20,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v3
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
-          distribution: 'temurin'
-          java-version: '11'
-          cache: 'maven'
+          go-version: '1.21'
 
       - name: Build webhook-receiver Lambda
-        working-directory: lambda/webhook-receiver
-        run: mvn clean package -DskipTests
+        working-directory: lambda/webhook-receiver-go
+        run: |
+          go mod download
+          GOOS=linux GOARCH=amd64 go build -o bootstrap main.go
+          zip function.zip bootstrap
 
       - name: Build es-indexer-worker Lambda
-        working-directory: lambda/es-indexer-worker
-        run: mvn clean package -DskipTests
+        working-directory: lambda/es-indexer-worker-go
+        run: |
+          go mod download
+          GOOS=linux GOARCH=amd64 go build -o bootstrap main.go
+          zip function.zip bootstrap
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4

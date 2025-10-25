@@ -82,13 +82,13 @@ resource "aws_iam_role_policy" "webhook_receiver_sqs" {
 resource "aws_lambda_function" "webhook_receiver" {
   function_name = "webhook-receiver"
   role          = aws_iam_role.webhook_receiver_role.arn
-  handler       = "no.javabin.webhook.LambdaHandler::handleRequest"
-  runtime       = "java11"
+  handler       = "bootstrap"
+  runtime       = "provided.al2"
   timeout       = 30
-  memory_size   = 512
+  memory_size   = 128
 
-  filename         = "../lambda/webhook-receiver/target/webhook-receiver-1.0.0-jar-with-dependencies.jar"
-  source_code_hash = filebase64sha256("../lambda/webhook-receiver/target/webhook-receiver-1.0.0-jar-with-dependencies.jar")
+  filename         = "../lambda/webhook-receiver-go/function.zip"
+  source_code_hash = filebase64sha256("../lambda/webhook-receiver-go/function.zip")
 
   environment {
     variables = {
@@ -183,13 +183,13 @@ resource "aws_iam_role_policy" "es_indexer_sqs" {
 resource "aws_lambda_function" "es_indexer" {
   function_name = "es-indexer-worker"
   role          = aws_iam_role.es_indexer_role.arn
-  handler       = "no.javabin.indexer.LambdaHandler::handleRequest"
-  runtime       = "java11"
+  handler       = "bootstrap"
+  runtime       = "provided.al2"
   timeout       = 300
-  memory_size   = 1024
+  memory_size   = 256
 
-  filename         = "../lambda/es-indexer-worker/target/es-indexer-worker-1.0.0-jar-with-dependencies.jar"
-  source_code_hash = filebase64sha256("../lambda/es-indexer-worker/target/es-indexer-worker-1.0.0-jar-with-dependencies.jar")
+  filename         = "../lambda/es-indexer-worker-go/function.zip"
+  source_code_hash = filebase64sha256("../lambda/es-indexer-worker-go/function.zip")
 
   environment {
     variables = {
