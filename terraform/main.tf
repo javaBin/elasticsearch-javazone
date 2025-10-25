@@ -213,89 +213,23 @@ resource "aws_lambda_event_source_mapping" "sqs_trigger" {
 }
 
 ################################################################################
-# OpenSearch Domain
+# Elasticsearch on Coolify
 ################################################################################
-
-# Security Group for OpenSearch
-resource "aws_security_group" "opensearch" {
-  name        = "opensearch-javazone"
-  description = "OpenSearch for JavaZone"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_cidr_blocks
-    description = "HTTPS for OpenSearch"
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# OpenSearch Domain
-resource "aws_opensearch_domain" "javazone" {
-  domain_name    = "javazone-talks"
-  engine_version = "OpenSearch_2.11"
-
-  cluster_config {
-    instance_type  = "t3.small.search"  # ~$0.036/hour = ~$26/month
-    instance_count = 1
-    zone_awareness_enabled = false
-  }
-
-  ebs_options {
-    ebs_enabled = true
-    volume_size = 10  # GB - plenty for 10K talks
-    volume_type = "gp3"
-  }
-
-  vpc_options {
-    subnet_ids         = [var.es_subnet_ids[0]]  # Single AZ for cost savings
-    security_group_ids = [aws_security_group.opensearch.id]
-  }
-
-  advanced_security_options {
-    enabled                        = true
-    internal_user_database_enabled = true
-    master_user_options {
-      master_user_name     = var.elasticsearch_username
-      master_user_password = var.elasticsearch_password
-    }
-  }
-
-  encrypt_at_rest {
-    enabled = true
-  }
-
-  node_to_node_encryption {
-    enabled = true
-  }
-
-  domain_endpoint_options {
-    enforce_https       = true
-    tls_security_policy = "Policy-Min-TLS-1-2-2019-07"
-  }
-
-  access_policies = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        AWS = "*"
-      }
-      Action   = "es:*"
-      Resource = "arn:aws:es:${var.aws_region}:*:domain/javazone-talks/*"
-    }]
-  })
-
-  tags = {
-    Name = "javazone-talks"
-  }
-}
+#
+# Elasticsearch is deployed on Coolify (external to this Terraform)
+#
+# Setup in Coolify:
+# 1. Deploy elasticsearch:8.11.0 container
+# 2. Set environment variables:
+#    - discovery.type=single-node
+#    - xpack.security.enabled=true
+#    - ELASTIC_PASSWORD=<use var.elasticsearch_password>
+#    - ES_JAVA_OPTS=-Xms1g -Xmx1g
+# 3. Expose port 9200
+# 4. Add persistent volume for /usr/share/elasticsearch/data
+# 5. Note the URL (e.g., http://elasticsearch.your-domain.com:9200)
+# 6. Create index using config/index-mapping.json
+#
+# Cost: Depends on your Coolify hosting (~$0-10/month)
+################################################################################
 

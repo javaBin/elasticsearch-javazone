@@ -62,11 +62,8 @@ jobs:
         working-directory: terraform
         run: terraform plan -input=false
         env:
-          TF_VAR_vpc_id: ${{ secrets.VPC_ID }}
-          TF_VAR_es_subnet_ids: ${{ secrets.ES_SUBNET_IDS }}
-          TF_VAR_assign_public_ip: false
-          TF_VAR_allowed_cidr_blocks: ${{ secrets.VPC_CIDR_BLOCKS }}
           TF_VAR_elasticsearch_password: ${{ secrets.ELASTICSEARCH_PASSWORD }}
+          TF_VAR_elasticsearch_url: ${{ secrets.ELASTICSEARCH_URL }}
           TF_VAR_webhook_secret: ${{ secrets.WEBHOOK_SECRET }}
           TF_VAR_moresleep_url: ${{ secrets.MORESLEEP_URL }}
           TF_VAR_moresleep_username: ${{ secrets.MORESLEEP_USERNAME }}
@@ -76,15 +73,8 @@ jobs:
         working-directory: terraform
         run: terraform apply -auto-approve -input=false
         env:
-          TF_VAR_vpc_id: ${{ secrets.VPC_ID }}
-          TF_VAR_es_subnet_ids: ${{ secrets.ES_SUBNET_IDS }}
-          TF_VAR_assign_public_ip: false
-          TF_VAR_allowed_cidr_blocks: ${{ secrets.VPC_CIDR_BLOCKS }}
           TF_VAR_elasticsearch_password: ${{ secrets.ELASTICSEARCH_PASSWORD }}
-          TF_VAR_elasticsearch_url: http://elasticsearch.javazone.internal:9200
-          TF_VAR_task_cpu: 1024
-          TF_VAR_task_memory: 2048
-          TF_VAR_heap_size: 1024
+          TF_VAR_elasticsearch_url: ${{ secrets.ELASTICSEARCH_URL }}
           TF_VAR_webhook_secret: ${{ secrets.WEBHOOK_SECRET }}
           TF_VAR_moresleep_url: ${{ secrets.MORESLEEP_URL }}
           TF_VAR_moresleep_username: ${{ secrets.MORESLEEP_USERNAME }}
@@ -94,32 +84,16 @@ jobs:
         working-directory: terraform
         run: |
           echo "================================================"
-          echo "✅ Deployment Complete!"
+          echo "✅ AWS Infrastructure Deployed!"
           echo "================================================"
           echo ""
           echo "🔗 Webhook URL for moresleep:"
           terraform output -raw webhook_url
           echo ""
           echo ""
-          echo "📊 OpenSearch:"
-          terraform output -raw opensearch_endpoint
-          echo ""
-          echo ""
           echo "📦 SQS Queue:"
           terraform output -raw sqs_queue_url
           echo ""
+          echo ""
+          echo "📊 Elasticsearch: Deploy on Coolify (see README)"
           echo "================================================"
-
-      - name: Wait for OpenSearch to be ready
-        run: |
-          echo "Waiting 5 minutes for OpenSearch domain to be active..."
-          sleep 300
-
-      - name: Create OpenSearch Index
-        working-directory: terraform
-        run: |
-          OS_URL=$(terraform output -raw opensearch_endpoint)
-          curl -X PUT "$OS_URL/javazone_talks" \
-            -u elastic:${{ secrets.ELASTICSEARCH_PASSWORD }} \
-            -H "Content-Type: application/json" \
-            -d @../config/index-mapping.json || echo "Index may already exist"

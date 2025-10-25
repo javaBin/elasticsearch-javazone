@@ -11,13 +11,9 @@ output "sqs_dlq_url" {
   value = aws_sqs_queue.dlq.url
 }
 
-output "opensearch_endpoint" {
-  value       = "https://${aws_opensearch_domain.javazone.endpoint}"
-  description = "OpenSearch endpoint URL"
-}
-
-output "opensearch_domain_name" {
-  value = aws_opensearch_domain.javazone.domain_name
+output "elasticsearch_info" {
+  value       = "Elasticsearch deployed on Coolify - see README for setup"
+  description = "Elasticsearch is not managed by this Terraform"
 }
 
 output "webhook_receiver_lambda" {

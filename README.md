@@ -1,156 +1,87 @@
-# Elasticsearch for JavaZone
+# JavaZone Elasticsearch Integration
 
-Elasticsearch deployment on AWS Fargate with EFS persistent storage.
+Complete Elasticsearch integration for JavaZone - all in one repository!
 
-## Architecture
+## 🎯 What This Deploys
 
-- **Single Fargate task** running Elasticsearch 8.11
-- **EFS volume** for persistent data storage
-- **Service Discovery** for stable DNS: `elasticsearch.javazone.internal:9200`
-- **1 vCPU, 2GB RAM** (sufficient for ~10K talks)
+**AWS (via Terraform):**
+- SQS queues (main + DLQ)
+- webhook-receiver Lambda (API Gateway)
+- es-indexer-worker Lambda (SQS triggered)
 
-## Deployment
+**Coolify (manual):**
+- Elasticsearch 8.11.0
 
-### 1. Deploy Infrastructure
+**Cost: ~$2-5/month AWS + $0 Coolify = ~$2-5/month total**
 
+---
+
+## 🚀 Quick Start
+
+### 1. Deploy Elasticsearch on Coolify
+
+1. Coolify → New Resource → Docker Image
+2. Image: `elasticsearch:8.11.0`
+3. Environment:
+   ```
+   discovery.type=single-node
+   xpack.security.enabled=true
+   ELASTIC_PASSWORD=bi75Xtl3KPXI4CS7QRU8TrFRpF3mV1qX
+   ES_JAVA_OPTS=-Xms1g -Xmx1g
+   ```
+4. Volume: `/data/elasticsearch` → `/usr/share/elasticsearch/data`
+5. Port: `9200`
+6. Deploy
+
+7. Create index:
+   ```bash
+   curl -X PUT "http://your-es-url:9200/javazone_talks" \
+     -u elastic:bi75Xtl3KPXI4CS7QRU8TrFRpF3mV1qX \
+     -H "Content-Type: application/json" \
+     -d @config/index-mapping.json
+   ```
+
+8. Update GitHub secret with your ES URL:
+   ```bash
+   gh secret set ELASTICSEARCH_URL --body "http://your-elasticsearch-domain:9200"
+   ```
+
+---
+
+### 2. Deploy AWS Infrastructure (GitHub Actions)
+
+Push to `main` or manually trigger workflow:
+
+https://github.com/javaBin/elasticsearch-javazone/actions
+
+Deploys: SQS + 2 Lambdas (~2 minutes)
+
+---
+
+### 3. Configure Moresleep
+
+Use webhook URL from GitHub Actions output:
+
+```properties
+WEBHOOK_ENABLED=true
+WEBHOOK_ENDPOINT=<url-from-output>
+WEBHOOK_SECRET=7faa5e7879e189dfdeab497f647a88e15abcd7be4c2209f318465e764547d258
+```
+
+Redeploy moresleep.
+
+---
+
+## ✅ Testing
+
+Create a talk → Check ES within 10 seconds:
 ```bash
-cd terraform
-
-cp terraform.tfvars.example terraform.tfvars
-# Edit with your values
-
-terraform init
-terraform apply
+curl -u elastic:pass "http://your-es-url:9200/javazone_talks/_search?q=test"
 ```
 
-**What this creates:**
-- ECS Cluster and Fargate task
-- EFS file system for data persistence
-- Security groups
-- Service discovery (optional DNS name)
-- SSM parameter for password
+---
 
-**Cost:** ~$35-45/month (Fargate + EFS)
+**Total setup time: ~10 minutes**
+**Monthly cost: ~$2-5**
 
-### 2. Wait for Elasticsearch to Start
-
-```bash
-# Check task status
-aws ecs list-tasks --cluster elasticsearch-javazone --region eu-central-1
-
-# Get task IP (if not using service discovery)
-aws ecs describe-tasks \
-  --cluster elasticsearch-javazone \
-  --tasks <task-arn> \
-  --region eu-central-1 | grep "privateIpv4Address"
-```
-
-### 3. Create Index
-
-If using service discovery:
-```bash
-ES_URL="http://elasticsearch.javazone.internal:9200"
-```
-
-Otherwise:
-```bash
-ES_URL="http://<task-private-ip>:9200"
-```
-
-Create the index:
-```bash
-curl -X PUT "$ES_URL/javazone_talks" \
-  -u elastic:<your-password> \
-  -H "Content-Type: application/json" \
-  -d @../config/index-mapping.json
-```
-
-Verify:
-```bash
-curl -u elastic:<password> "$ES_URL/javazone_talks"
-curl -u elastic:<password> "$ES_URL/_cluster/health"
-```
-
-## Access from Other Services
-
-### With Service Discovery (Recommended)
-```
-ELASTICSEARCH_URL=http://elasticsearch.javazone.internal:9200
-```
-
-Use this in:
-- es-indexer-worker terraform.tfvars
-- libum configuration
-
-### Without Service Discovery
-Use the task's private IP (changes on restart):
-```
-ELASTICSEARCH_URL=http://10.0.x.x:9200
-```
-
-## Monitoring
-
-View task logs in AWS ECS Console:
-- ECS → Clusters → elasticsearch-javazone → Tasks → View logs tab
-
-Check cluster health:
-```bash
-curl -u elastic:<password> "$ES_URL/_cluster/health"
-```
-
-Check document count:
-```bash
-curl -u elastic:<password> "$ES_URL/javazone_talks/_count"
-```
-
-## Data Persistence
-
-Data is stored on EFS and persists across task restarts. To completely reset:
-
-```bash
-# Stop service
-aws ecs update-service \
-  --cluster elasticsearch-javazone \
-  --service elasticsearch-javazone \
-  --desired-count 0
-
-# Delete EFS data (requires EC2 instance or Fargate task with EFS mounted)
-# Then restart service
-aws ecs update-service \
-  --cluster elasticsearch-javazone \
-  --service elasticsearch-javazone \
-  --desired-count 1
-```
-
-## Cost Estimate
-
-- **Fargate**: ~$25-30/month (1 vCPU, 2GB, always running)
-- **EFS**: ~$10-15/month (5-10GB data)
-- **SSM**: Free
-- **Service Discovery**: Free
-
-**Total: ~$35-45/month**
-
-## Scaling
-
-For higher load (unlikely needed):
-- Increase `task_cpu` and `task_memory` in terraform.tfvars
-- Apply and restart
-
-For production HA:
-- Deploy multiple tasks
-- Use Application Load Balancer
-- Multiple AZ deployment
-
-But for 10K talks, single task is sufficient.
-
-## Backup
-
-EFS data is persistent, but consider:
-- EFS automatic backups (AWS Backup)
-- Elasticsearch snapshot repository
-- Periodic manual snapshots
-
-## Sample Queries
-
-See `config/sample-queries.sh` for common Elasticsearch queries.
+Perfect! 🎉

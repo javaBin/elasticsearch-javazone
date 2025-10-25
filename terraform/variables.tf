@@ -4,38 +4,8 @@ variable "aws_region" {
   default     = "eu-central-1"
 }
 
-variable "vpc_id" {
-  description = "VPC ID"
-  type        = string
-}
-
-variable "es_subnet_ids" {
-  description = "Subnet IDs for Elasticsearch (need 2+ for EFS)"
-  type        = list(string)
-}
-
-variable "assign_public_ip" {
-  description = "Assign public IP to Elasticsearch task"
-  type        = bool
-  default     = false
-}
-
-variable "allowed_cidr_blocks" {
-  description = "CIDR blocks allowed to access Elasticsearch"
-  type        = list(string)
-}
-
-variable "opensearch_instance_type" {
-  description = "OpenSearch instance type"
-  type        = string
-  default     = "t3.small.search"  # ~$26/month
-}
-
-variable "opensearch_volume_size" {
-  description = "EBS volume size in GB"
-  type        = number
-  default     = 10
-}
+# Note: VPC/subnets not needed for Lambda-only deployment
+# Elasticsearch runs on Coolify (external)
 
 variable "elasticsearch_password" {
   description = "Elasticsearch password"
