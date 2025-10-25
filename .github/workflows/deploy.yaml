@@ -24,11 +24,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_OIDC }}
+          role-session-name: GitHubActions-OIDC
+
+      - name: Assume CDK Deploy Role for Terraform
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::553637109631:role/cdk-hnb659fds-deploy-role-553637109631-eu-central-1
+          role-chaining: true
+          role-session-name: GitHubActions-Deploy
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
